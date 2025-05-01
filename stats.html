@@ -1,0 +1,154 @@
+import { useState, useEffect } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const stats = ["Knowledge", "Thinking", "Guts", "Kindness", "Charm", "Proficiency"];
+
+export default function ResolveEngine() {
+  const [xp, setXp] = useState({
+    Knowledge: 0,
+    Thinking: 0,
+    Guts: 0,
+    Kindness: 0,
+    Charm: 0,
+    Proficiency: 0,
+  });
+
+  const [logs, setLogs] = useState([]);
+  const [entry, setEntry] = useState({ stat: "Knowledge", value: "", notes: "" });
+
+  useEffect(() => {
+    const storedXp = localStorage.getItem('resolveXp');
+    const storedLogs = localStorage.getItem('resolveLogs');
+    if (storedXp) {
+      setXp(JSON.parse(storedXp));
+    }
+    if (storedLogs) {
+      setLogs(JSON.parse(storedLogs));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('resolveXp', JSON.stringify(xp));
+    localStorage.setItem('resolveLogs', JSON.stringify(logs));
+  }, [xp, logs]);
+
+  const addXp = () => {
+    const val = parseInt(entry.value, 10);
+    if (!isNaN(val)) {
+      const updatedXp = { ...xp, [entry.stat]: xp[entry.stat] + val };
+      const newLogs = [...logs, { ...entry, value: val, date: new Date().toLocaleDateString() }];
+      setXp(updatedXp);
+      setLogs(newLogs);
+      setEntry({ stat: "Knowledge", value: "", notes: "" });
+    }
+  };
+
+  const getChartData = () => {
+    const dateMap = {};
+    logs.forEach(log => {
+      if (!dateMap[log.date]) {
+        dateMap[log.date] = { date: log.date };
+      }
+      if (!dateMap[log.date][log.stat]) {
+        dateMap[log.date][log.stat] = 0;
+      }
+      dateMap[log.date][log.stat] += log.value;
+    });
+    return Object.values(dateMap).sort((a, b) => new Date(a.date) - new Date(b.date));
+  };
+
+  const getLevel = (xpValue) => Math.floor(xpValue / 1000);
+
+  return (
+    <div className="p-6 grid gap-6 max-w-5xl mx-auto">
+      <h1 className="text-3xl font-bold text-center">Resolve Engine v1.0</h1>
+
+      <Card>
+        <CardContent className="grid gap-4 p-4">
+          <h2 className="text-xl font-semibold">Stat Dashboard</h2>
+          {stats.map(stat => (
+            <div key={stat} className="flex flex-col gap-1">
+              <div className="flex justify-between items-center">
+                <span>{stat}</span>
+                <span>Level {getLevel(xp[stat])}</span>
+              </div>
+              <div className="w-full h-4 bg-gray-200 rounded">
+                <div
+                  className="h-4 bg-blue-500 rounded"
+                  style={{ width: `${(xp[stat] % 1000) / 10}%` }}
+                ></div>
+              </div>
+              <div className="text-sm text-gray-600">{xp[stat]} XP</div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="grid gap-4 p-4">
+          <h2 className="text-xl font-semibold">Add Activity</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <select
+              value={entry.stat}
+              onChange={e => setEntry({ ...entry, stat: e.target.value })}
+              className="p-2 border rounded"
+            >
+              {stats.map(stat => (
+                <option key={stat} value={stat}>{stat}</option>
+              ))}
+            </select>
+            <Input
+              type="number"
+              placeholder="XP"
+              value={entry.value}
+              onChange={e => setEntry({ ...entry, value: e.target.value })}
+            />
+            <Textarea
+              placeholder="Notes"
+              value={entry.notes}
+              onChange={e => setEntry({ ...entry, notes: e.target.value })}
+            />
+          </div>
+          <Button onClick={addXp}>Log Activity</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="grid gap-4 p-4">
+          <h2 className="text-xl font-semibold">Activity Log</h2>
+          <div className="grid gap-2">
+            {logs.map((log, index) => (
+              <div key={index} className="p-2 border rounded">
+                <strong>{log.stat}</strong> +{log.value} XP
+                <div className="text-sm text-gray-500">{log.date}</div>
+                <div>{log.notes}</div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="grid gap-4 p-4">
+          <h2 className="text-xl font-semibold">Progress Over Time</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={getChartData()}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              {stats.map(stat => (
+                <Line key={stat} type="monotone" dataKey={stat} stroke="#3b82f6" />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
